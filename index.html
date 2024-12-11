@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Scam Detector Game</title>
+    <style>
+        /* Old Style */
+        body {
+            background-color: #f4f4f9;
+            font-family: "Arial", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 90%;
+            max-width: 600px;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            text-align: center;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .level, .timer {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .scenario {
+            margin: 20px 0;
+            font-size: 16px;
+            line-height: 1.5;
+        }
+
+        form {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        input[type="text"], input[type="password"] {
+            margin: 5px 0;
+            padding: 8px;
+            width: 80%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: #ddd;
+        }
+
+        #reportButton {
+            background-color: #f44336;
+            color: white;
+        }
+
+        #submitReport {
+            background-color: #4CAF50;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Scam Detector</h1>
+        <div id="level" class="level">Level: 1</div>
+        <div id="score" class="level">Scams Identified: 0/3</div>
+        <div id="timer" class="timer" style="display: none;">Time Left: <span id="timerValue">30</span>s</div>
+        <div id="scenario" class="scenario"></div>
+        <button id="reportButton" onclick="showReportOptions()">Report This</button>
+        <select id="reportOptions" style="display: none;">
+            <option value="">Select Scam Type</option>
+            <option value="phishing-login">Phishing Login</option>
+            <option value="fake-promo">Fake Promotion</option>
+            <option value="malware">Malware</option>
+            <option value="tech-support">Tech Support Scam</option>
+            <option value="fake-survey">Fake Survey</option>
+            <option value="investment-scam">Investment Scam</option>
+            <option value="romance-scam">Romance Scam</option>
+            <option value="charity-scam">Charity Scam</option>
+        </select>
+        <button id="submitReport" style="display: none;" onclick="submitReport()">Submit Report</button>
+        <div id="explanation" class="explanation" style="display: none;"></div>
+    </div>
+
+    <script>
+        /* Game logic */
+        const scenarios = [
+            // Phishing login form
+            {
+                type: "phishing-login",
+                content: `<h2>Login to Your Account</h2>
+                <form onsubmit="loseGame('phishing-login'); return false;">
+                    <input type="text" placeholder="Username">
+                    <input type="password" placeholder="Password">
+                    <button type="submit">Login</button>
+                </form>`,
+                difficulty: 1,
+            },
+            // Legitimate login form
+            {
+                type: "legit-login",
+                content: `<h2>Secure Login</h2>
+                <form onsubmit="winLegitimate(); return false;">
+                    <input type="text" placeholder="Username">
+                    <input type="password" placeholder="Password">
+                    <button type="submit">Login</button>
+                </form>`,
+                difficulty: 1,
+            },
+            // Fake promotions
+            {
+                type: "fake-promo",
+                content: `<h2>Limited Time Offer</h2><p>Claim your free vacation now! <a href="#" onclick="loseGame('fake-promo');">Claim Here</a></p>`,
+                difficulty: 1,
+            },
+            {
+                type: "malware",
+                content: `<h2>Warning!</h2><p>Your device is infected. <a href="#" onclick="loseGame('malware');">Fix Now</a></p>`,
+                difficulty: 1,
+            },
+            {
+                type: "tech-support",
+                content: `<h2>Critical Error</h2><p>Call our support at 1-800-SCAMMER now! <a href="#" onclick="loseGame('tech-support');">More Info</a></p>`,
+                difficulty: 2,
+            },
+            // New scams
+            {
+                type: "investment-scam",
+                content: `<h2>Investment Opportunity</h2><p>Invest $100 now to make $10,000 overnight! <a href="#" onclick="loseGame('investment-scam');">Invest Now</a></p>`,
+                difficulty: 2,
+            },
+            {
+                type: "romance-scam",
+                content: `<h2>Love Match</h2><p>Chat with your perfect match. <a href="#" onclick="loseGame('romance-scam');">Start Chat</a></p>`,
+                difficulty: 2,
+            },
+            {
+                type: "charity-scam",
+                content: `<h2>Help Save Lives</h2><p>Donate to this urgent cause. <a href="#" onclick="loseGame('charity-scam');">Donate Now</a></p>`,
+                difficulty: 3,
+            },
+        ];
+
+        let level = 1;
+        let correctScams = 0;
+        let currentScenario;
+        let lastThreeScenarios = [];
+        let timerValue = 30;
+        let timerInterval;
+
+        function randomizeScenario() {
+            const availableScenarios = scenarios.filter(
+                (scenario) => !lastThreeScenarios.includes(scenario) && scenario.difficulty <= level
+            );
+
+            if (availableScenarios.length === 0) {
+                lastThreeScenarios = [];
+                randomizeScenario();
+                return;
+            }
+
+            currentScenario =
+                availableScenarios[Math.floor(Math.random() * availableScenarios.length)];
+            lastThreeScenarios.push(currentScenario);
+            if (lastThreeScenarios.length > 3) lastThreeScenarios.shift();
+
+            document.getElementById("scenario").innerHTML = currentScenario.content;
+            document.getElementById("reportOptions").style.display = "none";
+            document.getElementById("submitReport").style.display = "none";
+            document.getElementById("explanation").style.display = "none";
+
+            if (currentScenario.type.includes("login")) {
+                document.getElementById("timer").style.display = "none";
+            } else {
+                document.getElementById("timer").style.display = "block";
+                startTimer();
+            }
+        }
+
+        function startTimer() {
+            clearInterval(timerInterval);
+            timerValue = level >= 5 ? 10 : 30;
+            document.getElementById("timerValue").textContent = timerValue;
+
+            timerInterval = setInterval(() => {
+                if (timerValue <= 0) {
+                    clearInterval(timerInterval);
+                    loseGame("timeout");
+                } else {
+                    timerValue--;
+                    document.getElementById("timerValue").textContent = timerValue;
+                }
+            }, 1000);
+        }
+
+        function loseGame(scamType) {
+            alert(`You fell for the ${scamType} scam!`);
+            resetGame();
+        }
+
+        function showReportOptions() {
+            document.getElementById("reportOptions").style.display = "inline-block";
+            document.getElementById("submitReport").style.display = "inline-block";
+        }
+
+        function submitReport() {
+            const selectedScam = document.getElementById("reportOptions").value;
+            if (selectedScam === currentScenario.type) {
+                alert("Correct! You identified the scam!");
+                correctScams++;
+                document.getElementById("score").textContent = `Scams Identified: ${correctScams}/3`;
+
+                if (correctScams >= 3) {
+                    level++;
+                    document.getElementById("level").textContent = `Level: ${level}`;
+                    correctScams = 0;
+                }
+                randomizeScenario();
+            } else {
+                loseGame(selectedScam);
+            }
+        }
+
+        function winLegitimate() {
+            alert("This was a legitimate site. Well done!");
+            randomizeScenario();
+        }
+
+        document.addEventListener("DOMContentLoaded", randomizeScenario);
+    </script>
+</body>
+</html>
